@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Alineamiento Cultural 2025 - Evaluación</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+  body {
+    margin: 0; padding: 0;
+    font-family: 'Poppins', sans-serif;
+    background: #E41B17;
+    color: white;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    background: #B7121B;
+    padding: 1.5rem;
+    text-align: center;
+    font-weight: 700;
+    font-size: 1.8rem;
+  }
+  main {
+    flex-grow: 1;
+    max-width: 600px;
+    width: 90%;
+    margin: 2rem auto 3rem;
+    background: #B7121B;
+    border-radius: 12px;
+    padding: 2rem;
+  }
+  .hidden {
+    display: none;
+  }
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+  input[type="text"], input[type="number"] {
+    width: 100%;
+    padding: 0.7rem 1rem;
+    font-size: 1.1rem;
+    border-radius: 8px;
+    border: none;
+    outline: none;
+    font-weight: 600;
+    color: #B7121B;
+  }
+  input[type="text"]:focus, input[type="number"]:focus {
+    box-shadow: 0 0 8px white;
+  }
+  button {
+    background: white;
+    color: #B7121B;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem 1.5rem;
+    font-weight: 700;
+    font-size: 1.2rem;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 1.5rem;
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+  button:disabled {
+    background: rgba(255, 255, 255, 0.6);
+    color: #B7121B;
+    cursor: not-allowed;
+  }
+  .btn-group {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+</style>
+</head>
+<body>
+<header>
+  Alineamiento Cultural 2025
+</header>
+
+<main>
+  <!-- Pantalla 1 - Bienvenida -->
+  <section id="page-welcome">
+    <h2>Bienvenido al Alineamiento Cultural 2025</h2>
+    <label for="sapCodeInput">Por favor ingresa tu código SAP:</label>
+    <input type="text" id="sapCodeInput" placeholder="Ej. prueba" aria-label="Código SAP" />
+    <button id="btnSubmitSAP" disabled>Continuar</button>
+  </section>
+
+  <!-- Pantalla 2 - Opciones evaluación -->
+  <section id="page-eval-options" class="hidden">
+    <h2>Selecciona evaluación a realizar</h2>
+    <div class="btn-group">
+      <button id="btnEvalLeader">Evalúa a tu Líder (Faviana)</button>
+      <button id="btnEvalDependents" class="hidden">Evalúa a tus Dependientes (Willy)</button>
+      <button id="btnLogout" style="background:#fff;color:#B7121B;font-weight:600;">Cerrar sesión</button>
+    </div>
+  </section>
+
+  <!-- Pantalla 3 - Formulario de Evaluación -->
+  <section id="page-evaluation-form" class="hidden">
+    <h2 id="evalFormTitle">Evaluación</h2>
+    <form id="evaluationForm" aria-label="Formulario de evaluación">
+      <input type="hidden" id="evalRole" name="role" />
+      <input type="hidden" id="evalPersonName" name="personName" />
+      <div class="full-width">
+        <label id="labelEvalPerson" for="evalPersonReadOnly">Persona a evaluar</label>
+        <input type="text" id="evalPersonReadOnly" readonly />
+      </div>
+      <div id="questionsContainer"></div>
+      <button type="submit">Guardar Evaluación</button>
+      <button type="button" id="btnCancelEval" style="background: #ffffffcc; color: #B7121B; font-weight: 600; margin-top: 0.6rem;">Cancelar</button>
+    </form>
+  </section>
+
+  <!-- Pantalla 4 - Mensaje de Agradecimiento -->
+  <section id="page-success" class="hidden">
+    <h2>Gracias por completar la evaluación.</h2>
+    <button id="btnBackEvalOptions" style="background: #ffffffcc; color: #B7121B; font-weight: 600;">Volver a opciones de evaluación</button>
+  </section>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const userDatabase = {
+    'prueba': {
+      leader: 'Faviana',
+      dependents: ['Willy']
+    }
+  };
+
+  const questions = {
+    'Líder': [
+      'Comunicación',
+      'Trabajo en equipo',
+      'Liderazgo',
+      'Puntualidad'
+    ],
+    'Dependiente': [
+      'Comunicación',
+      'Trabajo en equipo',
+      'Puntualidad'
+    ]
+  };
+
+  const pageWelcome = document.getElementById('page-welcome');
+  const pageEvalOptions = document.getElementById('page-eval-options');
+  const pageEvaluationForm = document.getElementById('page-evaluation-form');
+  const pageSuccess = document.getElementById('page-success');
+
+  const sapCodeInput = document.getElementById('sapCodeInput');
+  const btnSubmitSAP = document.getElementById('btnSubmitSAP');
+
+  const btnEvalLeader = document.getElementById('btnEvalLeader');
+  const btnEvalDependents = document.getElementById('btnEvalDependents');
+  const btnLogout = document.getElementById('btnLogout');
+
+  const evaluationForm = document.getElementById('evaluationForm');
+  const evalFormTitle = document.getElementById('evalFormTitle');
+  const evalRoleInput = document.getElementById('evalRole');
+  const evalPersonNameInput = document.getElementById('evalPersonName');
+  const evalPersonReadOnly = document.getElementById('evalPersonReadOnly');
+  const questionsContainer = document.getElementById('questionsContainer');
+  const btnCancelEval = document.getElementById('btnCancelEval');
+
+  let currentUser  = null;
+  let currentEvalType = null; // 'Líder' or 'Dependiente'
+  let currentDependentName = null;
+
+  sapCodeInput.addEventListener('input', () => {
+    btnSubmitSAP.disabled = sapCodeInput.value.trim().length === 0;
+  });
+
+  btnSubmitSAP.addEventListener('click', () => {
+    const sapCode = sapCodeInput.value.trim();
+    if (userDatabase[sapCode]) {
+      currentUser  = { sapCode, ...userDatabase[sapCode] };
+      showPageEvalOptions();
+    } else {
+      alert('Código SAP no encontrado. Prueba con "prueba" para continuar.');
+    }
+  });
+
+  function showPageEvalOptions() {
+    pageWelcome.classList.add('hidden');
+    pageSuccess.classList.add('hidden');
+    pageEvaluationForm.classList.add('hidden');
+    pageEvalOptions.classList.remove('hidden');
+    sapCodeInput.value = '';
+    btnSubmitSAP.disabled = true;
+
+    if (currentUser.dependents && currentUser.dependents.length > 0) {
+      btnEvalDependents.classList.remove('hidden');
+    } else {
+      btnEvalDependents.classList.add('hidden');
+    }
+  }
+
+  btnEvalLeader.addEventListener('click', () => {
+    currentEvalType = 'Líder';
+    currentDependentName = null;
+    openEvaluationForm(currentEvalType, currentUser.leader);
+  });
+
+  btnEvalDependents.addEventListener('click', () => {
+    if (currentUser.dependents.length === 1) {
+      currentEvalType = 'Dependiente';
+      currentDependentName = currentUser.dependents[0];
+      openEvaluationForm(currentEvalType, currentDependentName);
+    } else {
+      alert('No hay dependientes para evaluar.');
+    }
+  });
+
+  function openEvaluationForm(role, personName) {
+    pageEvalOptions.classList.add('hidden');
+    pageEvaluationForm.classList.remove('hidden');
+    pageSuccess.classList.add('hidden');
+
+    evalRoleInput.value = role;
+    evalPersonNameInput.value = personName;
+    evalPersonReadOnly.value = personName;
+
+    evalFormTitle.textContent = `Evaluación a ${role}`;
+    questionsContainer.innerHTML = ''; // Limpiar preguntas previas
+
+    questions[role].forEach(question => {
+      const label = document.createElement('label');
+      label.textContent = question + ' (1-4)';
+      const input = document.createElement('input');
+      input.type = 'number';
+      input.min = 1;
+      input.max = 4;
+      input.required = true;
+      input.name = question.toLowerCase().replace(/\s+/g, '-'); // Usar guiones para nombres de inputs
+      questionsContainer.appendChild(label);
+      questionsContainer.appendChild(input);
+    });
+
+    // Resetear el formulario
+    evaluationForm.reset();
+  }
+
+  btnLogout.addEventListener('click', () => {
+    // Guardar evaluaciones en localStorage
+    saveEvaluations();
+    resetApp();
+  });
+
+  btnCancelEval.addEventListener('click', () => {
+    pageEvaluationForm.classList.add('hidden');
+    pageEvalOptions.classList.remove('hidden');
+  });
+
+  function saveEvaluations() {
+    const evaluations = JSON.parse(localStorage.getItem('evaluations')) || [];
+    evaluations.push({ user: currentUser.sapCode, role: currentEvalType, name: currentDependentName || currentUser.leader });
+    localStorage.setItem('evaluations', JSON.stringify(evaluations));
+  }
+
+  evaluationForm.addEventListener('submit', e => {
+    e.preventDefault();
+    const formData = new FormData(evaluationForm);
+    const evaluation = {};
+    for (const [key, value] of formData.entries()) {
+      evaluation[key] = Number(value);
+    }
+    saveEvaluation(currentUser.sapCode, evaluation);
+    pageEvaluationForm.classList.add('hidden');
+    pageSuccess.classList.remove('hidden');
+  });
+
+  function saveEvaluation(sapCode, evaluation) {
+    const key = `evaluations_${sapCode}`;
+    const stored = localStorage.getItem(key);
+    let arr = stored ? JSON.parse(stored) : [];
+    arr.push(evaluation);
+    localStorage.setItem(key, JSON.stringify(arr));
+  }
+
+  function resetApp() {
+    currentUser  = null;
+    currentEvalType = null;
+    currentDependentName = null;
+    pageEvalOptions.classList.add('hidden');
+    pageEvaluationForm.classList.add('hidden');
+    pageSuccess.classList.add('hidden');
+    pageWelcome.classList.remove('hidden');
+    sapCodeInput.value = '';
+    btnSubmitSAP.disabled = true;
+  }
+
+  window.onload = () => {
+    resetApp();
+  };
+});
+</script>
+</body>
+</html>
+
